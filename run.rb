@@ -111,9 +111,15 @@ CLI::UI::Frame.open('Record and Send Stats') do
     bar.tick(set_percent: 1.0)
   end
 
-  messages_per_channel = "*Of All Time:*\n" + stats.take(10).map do |stat|
+  messages_per_channel = "*Top 10 Of All Time:*\n" + stats.take(10).map do |stat|
     msg = "#{stat[:name]}: #{stat[:messages_sent]}"
   end.join("\n")
 
-  CLIENT.chat_postMessage(channel: '#personal-stats', text: messages_per_channel, username: "Julian's Stats", as_user: false)
+  CLIENT.chat_postMessage(
+    channel: '#personal-stats',
+    text: messages_per_channel,
+    username: "Julian's Stats",
+    as_user: false,
+    icon_emoji: ':learnding-ralph:'
+  )
 end
