@@ -1,0 +1,4 @@
+.env
+.byebug_history
+slack.json
+*.db

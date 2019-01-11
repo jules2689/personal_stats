@@ -1,0 +1,4 @@
+name: personal-stats
+up:
+  - ruby: 2.5.3
+  - bundler
