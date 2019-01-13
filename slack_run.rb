@@ -192,7 +192,7 @@ class SlackRun
           groups = per_channel.group_by(&:first)
           groups.each_with_index do |(channel_id, stats), idx|
             chan_name = channels[channel_id] || channel_id
-            # spinner.update_title("[#{idx + 1}/#{groups.size}] Creating graph for #{chan_name}")
+            spinner.update_title("[#{idx + 1}/#{groups.size}] Creating graph for #{chan_name}")
             g = Gruff::StackedBar.new
             g.theme = {
               :colors => %w(orange purple),
