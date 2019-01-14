@@ -3,6 +3,7 @@ require 'yaml'
 require 'date'
 
 require_relative 'grapher'
+require_relative 'graph_send_check'
 
 module SlackStats
   class Aggregator
@@ -129,33 +130,27 @@ module SlackStats
     end
 
     def send_to_slack(files_to_send)
-      yaml_dir = File.join(__dir__, '/graphs_sent.yml')
-      graphs_sent = 0
-
       CLI::UI::Spinner.spin("Sending files to slack") do |spinner|
-        # Send all files
-        files_sent_before = YAML.load_file(yaml_dir) rescue []
-        files_to_send.each do |title, path|
-          if files_sent_before.include?(path)
-            spinner.update_title "Skipping #{path}"
-            next
-          end
+        graphs_sent = 0
+        files_sent_before = []
 
-          graphs_sent += 1
-          spinner.update_title "Sending #{path}"
-          files_sent_before << path
-          @slack_client.files_upload(
-            channels: '#personal-stats',
-            file: Faraday::UploadIO.new(path, 'image/png'),
-            title: title,
-            filename: 'graph.jpg',
-            initial_comment: "*Graph:* #{title}\n*Date:* #{@base_time}"
-          )
+        files_to_send.each do |title, path|
+          files_sent_before = SlackStats::GraphSendCheck.with_check(path: path, save: false) do
+            graphs_sent += 1
+            spinner.update_title "Sending #{path}"
+            @slack_client.files_upload(
+              channels: '#personal-stats',
+              file: Faraday::UploadIO.new(path, 'image/png'),
+              title: title,
+              filename: 'graph.jpg',
+              initial_comment: "*Graph:* #{title}\n*Date:* #{@base_time}"
+            )
+          end
         end
 
         # Notify of the files sent as files cannot be sent with `as_user: false` so I wont get notified
         if graphs_sent > 0
-          File.write(yaml_dir, files_sent_before.to_yaml)
+          SlackStats::GraphSendCheck.save(files_sent_before)
           @slack_client.chat_postMessage(
             channel: '#personal-stats',
             text: "Sent #{graphs_sent} Graphs. Take a look!",

@@ -126,22 +126,24 @@ module SlackStats
             max_value = stats.max { |s| s[:messages_sent] }
             everything_else = all - stats.map { |s| s[:messages_sent] }.sum
 
-            Grapher.new("Top 10 Of All Time", Gruff::Bar, true).graph(stats, :messages_sent, path)
+            SlackStats::GraphSendCheck.with_check(path: path) do
+              Grapher.new("Top 10 Of All Time", Gruff::Bar, true).graph(stats, :messages_sent, path)
 
-            CLIENT.files_upload(
-              channels: '#personal-stats',
-              file: Faraday::UploadIO.new(path, 'image/png'),
-              title: "Top 10 of All Time",
-              filename: 'graph.jpg',
-              initial_comment: "*Top 10 Of All Time*\n*Date:* #{base_time}\n*Everything Else:* #{everything_else}"
-            )
-            CLIENT.chat_postMessage(
-              channel: '#personal-stats',
-              text: "Sent all time chart",
-              username: "Julian's Stats",
-              as_user: false,
-              icon_emoji: ':learnding-ralph:'
-            )
+              CLIENT.files_upload(
+                channels: '#personal-stats',
+                file: Faraday::UploadIO.new(path, 'image/png'),
+                title: "Top 10 of All Time",
+                filename: 'graph.jpg',
+                initial_comment: "*Top 10 Of All Time*\n*Date:* #{base_time}\n*Everything Else:* #{everything_else}"
+              )
+              CLIENT.chat_postMessage(
+                channel: '#personal-stats',
+                text: "Sent all time chart",
+                username: "Julian's Stats",
+                as_user: false,
+                icon_emoji: ':learnding-ralph:'
+              )
+            end
           end
 
           Aggregator.new(database, CLIENT).run
