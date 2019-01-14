@@ -87,10 +87,25 @@ module SlackStats
           chan_name = channels_map[channel_id] || channel_id
           sent_per_channel[chan_name] = stats.map { |s| s['sum'] }.sum unless chan_name == 'all'
           spinner.update_title("[#{idx + 1}/#{groups.size}] Creating graph for #{chan_name}")
-          Grapher.new(chan_name).graph(stats, ->(g) do
+          Grapher.new(chan_name).graph(stats, ->(g, labels) do
+            # Format the data a bit for ease of use
+            stats = stats.map do |s|
+              t =  Time.parse(s['for_date'])
+              [ t.strftime("%m-%d"), { 'weekend' => t.saturday? || t.sunday?, 'sum' => s['sum'] } ]
+            end.to_h
+
             # We need to add stats based on the weekend to differentiate weekend days
-            g.data :Messages, stats.collect { |s| t = Time.parse(s['for_date']); t.saturday? || t.sunday? ? 0 : s['sum'] }
-            g.data :'Weekend Messages', stats.collect { |s| t = Time.parse(s['for_date']); t.saturday? || t.sunday? ? s['sum'] : 0 }
+            messages = labels.map do |_, k|
+              next 0 unless stats[k]
+              stats[k][:weekend] ? 0 : stats[k]['sum']
+            end
+            g.data :Messages, messages
+
+            weekend_messages = labels.collect do |_, k|
+              next 0 unless stats[k]
+              stats[k][:weekend] ? stats[k]['sum'] : 0
+            end
+            g.data :'Weekend Messages', weekend_messages
           end, "#{dir}/#{chan_name}.png")
         end
 
