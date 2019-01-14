@@ -15,8 +15,6 @@ module SlackStats
 
     class << self
       def run
-        CLI::UI::StdoutRouter.enable
-
         database = Database.new
         msgs = all_messages
 
@@ -73,23 +71,23 @@ module SlackStats
               next if IGNORE_CHANNELS.include?(message.channel.id)
 
               if message.channel.is_group && !message.channel.is_mpim
-                database.insert('user_channels', id: message.channel.id, name: message.channel.name, type: 'group')
+                database.insert_or_ignore('user_channels', id: message.channel.id, name: message.channel.name, type: 'group')
               end
 
               if message.channel.is_mpim
-                database.insert('user_channels', id: message.channel.id, name: message.channel.name, type: 'mpim')
+                database.insert_or_ignore('user_channels', id: message.channel.id, name: message.channel.name, type: 'mpim')
               end
 
               if message.channel.is_channel
-                database.insert('user_channels', id: message.channel.id, name: message.channel.name, type: 'channel')
+                database.insert_or_ignore('user_channels', id: message.channel.id, name: message.channel.name, type: 'channel')
               end
 
               if message.channel.is_im
                 user_info = CLIENT.users_info(user: message.channel.user)
-                database.insert('user_channels', id: message.channel.user, name: user_info.user.real_name, type: 'user')
+                database.insert_or_ignore('user_channels', id: message.channel.user, name: user_info.user.real_name, type: 'user')
               end
 
-              database.insert(
+              database.insert_or_ignore(
                 'messages',
                 channel_id: message.channel.id,
                 user_id: message.channel.user,
@@ -107,7 +105,7 @@ module SlackStats
 
       def record_stats(database)
         CLI::UI::Frame.open('Record and Send Stats') do
-          stats = database.stats
+          stats = database.slack_stats
 
           CLI::UI::Frame.open('Record All Time Stats') do
             CLI::UI::Progress.progress do |bar|
@@ -126,7 +124,7 @@ module SlackStats
             max_value = stats.max { |s| s[:messages_sent] }
             everything_else = all - stats.map { |s| s[:messages_sent] }.sum
 
-            SlackStats::GraphSendCheck.with_check(path: path) do
+            SlackStats::GraphSendCheck.new.with_check(path: path) do
               Grapher.new("Top 10 Of All Time", Gruff::Bar, true).graph(stats, :messages_sent, path)
 
               CLIENT.files_upload(

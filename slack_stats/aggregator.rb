@@ -60,11 +60,11 @@ module SlackStats
         )
 
         # Overall Aggregation for the 'all' channel
-        @database.insert('aggregate_stats', channel_id: 'all', messages_sent: messages.size, for_date: Database.format_time(beginning_date))
+        @database.insert_or_ignore('aggregate_stats', channel_id: 'all', messages_sent: messages.size, for_date: Database.format_time(beginning_date))
 
         # Per Channel Aggregation
         messages.group_by { |m| [m['channel_id'], m['user_id']] }.each do |key, channel_messages|
-          @database.insert(
+          @database.insert_or_ignore(
             'aggregate_stats',
             messages_sent: channel_messages.size,
             for_date: Database.format_time(beginning_date),
@@ -80,7 +80,7 @@ module SlackStats
         dir = "#{__dir__}/graphs/channels/#{@base_time}"
         FileUtils.mkdir_p(dir)
 
-        per_channel = @database.aggregate_stats('channel_id')
+        per_channel = @database.slack_aggregate_stats('channel_id')
 
         sent_per_channel = {}
         groups = per_channel.group_by { |c| c['channel_id'] }
@@ -123,7 +123,7 @@ module SlackStats
         dir = "#{__dir__}/graphs/types/#{@base_time}"
         FileUtils.mkdir_p(dir)
 
-        per_type = @database.aggregate_stats('type')
+        per_type = @database.slack_aggregate_stats('type')
         Grapher.new("Messages sent per Type").graph(per_type, 'type', "#{dir}/graph.png")
         files_to_send["Per Type Stats"] = "#{dir}/graph.png"
       end
@@ -133,9 +133,10 @@ module SlackStats
       CLI::UI::Spinner.spin("Sending files to slack") do |spinner|
         graphs_sent = 0
         files_sent_before = []
+        send_check = SlackStats::GraphSendCheck.new
 
         files_to_send.each do |title, path|
-          files_sent_before = SlackStats::GraphSendCheck.with_check(path: path, save: false) do
+          files_sent_before = send_check.with_check(path: path, save: false) do
             graphs_sent += 1
             spinner.update_title "Sending #{path}"
             @slack_client.files_upload(
@@ -150,7 +151,7 @@ module SlackStats
 
         # Notify of the files sent as files cannot be sent with `as_user: false` so I wont get notified
         if graphs_sent > 0
-          SlackStats::GraphSendCheck.save(files_sent_before)
+          send_check.save!
           @slack_client.chat_postMessage(
             channel: '#personal-stats',
             text: "Sent #{graphs_sent} Graphs. Take a look!",
