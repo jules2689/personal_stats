@@ -7,7 +7,7 @@ class Database
     t = case t
     when Time
       t
-    when Float
+    when Float, Integer
       Time.at(t)
     when t =~ /\d+/
       Time.at(t.to_f)

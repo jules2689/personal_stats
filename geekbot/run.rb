@@ -20,7 +20,7 @@ module Geekbot
             %w(time_stamp),
             "WHERE geekbot_standup_id='#{standup['id']}' ORDER BY id ASC LIMIT 1"
           ).first
-          latest_report = latest_report['time_stamp'].to_s if latest_report
+          latest_report = Time.parse(latest_report['time_stamp']).to_i.to_s if latest_report
 
           # Record all questions
           reports = Geekbot::API.reports(standup['id'], latest_report)
@@ -53,7 +53,7 @@ module Geekbot
     end
 
     def self.insert(database, standup, report)
-      database.insert_or_ignore(
+      database.insert(
         'geekbot_reports',
         geekbot_report_id: report['id'],
         geekbot_standup_id: report['standup_id'],
@@ -64,10 +64,11 @@ module Geekbot
         user_avatar: report['member']['profileImg'],
 
         slack_ts: report['slack_ts'],
-        time_stamp: report['timestamp'],
+        time_stamp: Database.format_time(report['timestamp']),
         channel: report['channel'],
       )
-    ensure
+      database.select('geekbot_reports', %w(id), "WHERE geekbot_report_id='#{report['id']}'").first['id']
+    rescue SQLite3::ConstraintException
       database.select('geekbot_reports', %w(id), "WHERE geekbot_report_id='#{report['id']}'").first['id']
     end
   end
