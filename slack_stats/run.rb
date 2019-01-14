@@ -1,6 +1,7 @@
 require 'slack-ruby-client'
 require_relative '../database'
 require_relative 'aggregator'
+require_relative 'grapher'
 
 Slack.configure do |config|
   config.token = ENV['SLACK_TOKEN']
@@ -106,7 +107,6 @@ module SlackStats
 
       def record_stats(database)
         CLI::UI::Frame.open('Record and Send Stats') do
-          # TODO: Is this useful with aggregates involved?
           stats = database.stats
 
           CLI::UI::Frame.open('Record All Time Stats') do
@@ -118,17 +118,30 @@ module SlackStats
               bar.tick(set_percent: 1.0)
             end
 
-            messages_per_channel = "*Top 10 Of All Time:*\n" + stats.take(10).map do |stat|
-              msg = "#{stat[:name]}: #{stat[:messages_sent]}"
-            end.join("\n")
+            base_time = DateTime.now.prev_day.strftime("%Y/%m/%d")
+            path = __dir__ + "/graphs/channels/#{base_time}/all_time.png"
 
-            # CLIENT.chat_postMessage(
-            #   channel: '#personal-stats',
-            #   text: messages_per_channel,
-            #   username: "Julian's Stats",
-            #   as_user: false,
-            #   icon_emoji: ':learnding-ralph:'
-            # )
+            all = stats.map { |s| s[:messages_sent] }.sum
+            stats = stats.max(10) { |s| s[:messages_sent] }.sort_by { |s| -s[:messages_sent] }
+            max_value = stats.max { |s| s[:messages_sent] }
+            everything_else = all - stats.map { |s| s[:messages_sent] }.sum
+
+            Grapher.new("Top 10 Of All Time", Gruff::Bar, true).graph(stats, :messages_sent, path)
+
+            CLIENT.files_upload(
+              channels: '#personal-stats',
+              file: Faraday::UploadIO.new(path, 'image/png'),
+              title: "Top 10 of All Time",
+              filename: 'graph.jpg',
+              initial_comment: "*Top 10 Of All Time*\n*Date:* #{base_time}\n*Everything Else:* #{everything_else}"
+            )
+            CLIENT.chat_postMessage(
+              channel: '#personal-stats',
+              text: "Sent all time chart",
+              username: "Julian's Stats",
+              as_user: false,
+              icon_emoji: ':learnding-ralph:'
+            )
           end
 
           Aggregator.new(database, CLIENT).run
