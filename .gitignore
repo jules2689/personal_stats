@@ -2,4 +2,6 @@
 .byebug_history
 slack.json
 *.db
-graphs/*
+slack_stats/graphs/*
+slack_stats/graphs_sent.yml
+.DS_Store

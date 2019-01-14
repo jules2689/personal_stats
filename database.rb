@@ -28,6 +28,10 @@ class Database
     @db.execute("INSERT OR IGNORE INTO #{table} (#{cols}) VALUES (#{q_marks})", values.values)
   end
 
+  def select(table, keys, clause = nil, *args)
+    @db.execute("SELECT #{keys.join(',')} from #{table} #{clause}", args).map { |entry| keys.zip(entry).to_h }
+  end
+
   def slack_channels
     @db.execute("SELECT id, name from user_channels").to_h
   end
@@ -45,6 +49,16 @@ class Database
     rows.map do |row|
       { channel_id: row[1], name: row[2], messages_sent: row[0] }
     end
+  end
+
+  def aggregate_stats(group_by)
+    since =  Database.format_time(Time.now.beginning_of_day - 60 * 60 * 24 * 10) # 10 days ago
+    vals = (@db.execute <<-SQL, since)
+      SELECT #{group_by}, sum(messages_sent), for_date from aggregate_stats
+      WHERE channel_id != 'all' AND for_date > ?
+      GROUP BY #{group_by}, for_date ORDER BY for_date, #{group_by} DESC;
+    SQL
+    vals.map { |entry| [group_by, 'sum', 'for_date'].zip(entry).to_h }
   end
 
   private

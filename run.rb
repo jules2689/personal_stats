@@ -5,6 +5,6 @@ require 'dotenv/load'
 require 'cli/ui'
 require 'byebug'
 
-require_relative 'slack_run'
+require_relative 'slack_stats/run'
 
-SlackRun.run
+SlackStats::Run.run
