@@ -1,4 +1,6 @@
 name: personal-stats
 up:
+  - homebrew:
+    - sqlite
   - ruby: 2.5.3
   - bundler
