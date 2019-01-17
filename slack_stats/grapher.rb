@@ -1,3 +1,5 @@
+require 'time'
+
 module SlackStats
   class Grapher
     def initialize(title, type_class = Gruff::StackedBar, by_name = false, *init_args)
@@ -52,8 +54,9 @@ module SlackStats
 
     def default_graph(data, group_by, output_dir)
       # Find the range of for dates and set those as the labels
-      dates = data.group_by { |d| d['for_date'] }.keys.map { |d| Time.parse(d).to_i }
-      labels = (dates.min..dates.max).step(60 * 60 * 24).to_a.map.with_index do |int_time, idx|
+      max_date = DateTime.now.prev_day # Start from yesterday so we have a full day's data
+      min_date = max_date.prev_day(7) # Always want the last 7 days
+      labels = (min_date.to_time.to_i..max_date.to_time.to_i).step(60 * 60 * 24).to_a.map.with_index do |int_time, idx|
         [idx, Time.at(int_time).strftime("%m-%d")]
       end.to_h
       @graph.labels = labels

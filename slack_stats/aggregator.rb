@@ -138,7 +138,7 @@ module SlackStats
         files_to_send.each do |title, path|
           files_sent_before = send_check.with_check(path: path, save: false) do
             graphs_sent += 1
-            spinner.update_title "Sending #{path}"
+            spinner.update_title "Sending #{__dir__, '.../')}"
             @slack_client.files_upload(
               channels: '#personal-stats',
               file: Faraday::UploadIO.new(path, 'image/png'),
