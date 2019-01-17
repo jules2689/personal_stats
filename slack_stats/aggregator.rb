@@ -98,13 +98,13 @@ module SlackStats
             # We need to add stats based on the weekend to differentiate weekend days
             messages = labels.map do |_, k|
               next 0 unless stats[k]
-              stats[k][:weekend] ? 0 : stats[k]['sum']
+              stats[k]['weekend'] ? 0 : stats[k]['sum']
             end
             g.data :Messages, messages
 
             weekend_messages = labels.collect do |_, k|
               next 0 unless stats[k]
-              stats[k][:weekend] ? stats[k]['sum'] : 0
+              stats[k]['weekend'] ? stats[k]['sum'] : 0
             end
             g.data :'Weekend Messages', weekend_messages
           end, "#{dir}/#{chan_name}.png")

@@ -33,6 +33,7 @@ module SlackStats
     end
 
     def graph(data, group_by, output_dir)
+      FileUtils.mkdir_p(File.dirname(output_dir))
       if @by_name
         by_name_graph(data, group_by, output_dir)
       else
@@ -66,7 +67,6 @@ module SlackStats
           @graph.data group.to_sym, values
         end
       end
-
       @graph.write(output_dir)
     end
   end
