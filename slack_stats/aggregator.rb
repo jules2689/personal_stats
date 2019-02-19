@@ -1,4 +1,3 @@
-require 'gruff'
 require 'yaml'
 require 'date'
 
@@ -8,6 +7,7 @@ require_relative 'graph_send_check'
 module SlackStats
   class Aggregator
     def initialize(database, slack_client)
+      @scripts = [];
       @database = database
       @slack_client = slack_client
       @base_time = DateTime.now.prev_day.strftime("%Y/%m/%d")
@@ -15,12 +15,10 @@ module SlackStats
 
     def run
       CLI::UI::Frame.open('Record Aggregate Stats') do
-        files_to_send = {}
-
         record_aggregates
-        aggregate_by_channels(files_to_send)
-        aggreate_by_type(files_to_send)
-        send_to_slack(files_to_send)
+        aggreate_by_type
+        aggregate_by_channels
+        render_and_post_html
       end
     end
 
@@ -75,7 +73,7 @@ module SlackStats
       end
     end
 
-    def aggregate_by_channels(files_to_send)
+    def aggregate_by_channels
       CLI::UI::Spinner.spin("Creating graphs per channel") do |spinner|
         dir = "#{__dir__}/graphs/channels/#{@base_time}"
         FileUtils.mkdir_p(dir)
@@ -83,84 +81,76 @@ module SlackStats
         per_channel = @database.slack_aggregate_stats('channel_id')
 
         sent_per_channel = {}
+        scripts = {}
+
         groups = per_channel.group_by { |c| c['channel_id'] }
         groups.each_with_index do |(channel_id, stats), idx|
           chan_name = channels_map[channel_id] || channel_id
           sent_per_channel[chan_name] = stats.map { |s| s['sum'] }.sum unless chan_name == 'all'
           spinner.update_title("[#{idx + 1}/#{groups.size}] Creating graph for #{chan_name}")
-          Grapher.new(chan_name).graph(stats, ->(g, labels) do
-            # Format the data a bit for ease of use
+          group_by = ->(labels) do
+            data = []
             stats = stats.map do |s|
               t =  Time.parse(s['for_date'])
               [ t.strftime("%m-%d"), { 'weekend' => t.saturday? || t.sunday?, 'sum' => s['sum'] } ]
             end.to_h
 
             # We need to add stats based on the weekend to differentiate weekend days
-            messages = labels.map do |_, k|
+            messages = labels.map do |k|
               next 0 unless stats[k]
               stats[k]['weekend'] ? 0 : stats[k]['sum']
             end
-            g.data :Messages, messages
+            
+            data << {
+              label: 'Weekday Messages',
+              backgroundColor: Grapher.colors[0],
+              data: messages
+            }
 
-            weekend_messages = labels.collect do |_, k|
+            weekend_messages = labels.collect do |k|
               next 0 unless stats[k]
               stats[k]['weekend'] ? stats[k]['sum'] : 0
             end
-            g.data :'Weekend Messages', weekend_messages
-          end, "#{dir}/#{chan_name}.png")
+
+            data << {
+              label: 'Weekend Messages',
+              backgroundColor: Grapher.colors[1],
+              data: weekend_messages
+            }
+
+            data
+          end
+          scripts[chan_name] = Grapher.new(chan_name).graph(stats, group_by)
         end
 
         # Send graphs for only the top 5 channels / users
         sent_per_channel.sort_by { |_, v| -v }.take(5).each do |chan, _|
-           files_to_send["Per Channel: #{chan}"] = "#{dir}/#{chan}.png"
+          @scripts << scripts[chan]
         end
         spinner.update_title "Done creating graphs per channel"
       end
     end
 
-    def aggreate_by_type(files_to_send)
+    def aggreate_by_type
       CLI::UI::Spinner.spin("Creating stacked graph for types") do |spinner|
-        dir = "#{__dir__}/graphs/types/#{@base_time}"
-        FileUtils.mkdir_p(dir)
-
         per_type = @database.slack_aggregate_stats('type')
-        Grapher.new("Messages sent per Type").graph(per_type, 'type', "#{dir}/graph.png")
-        files_to_send["Per Type Stats"] = "#{dir}/graph.png"
+        @scripts << Grapher.new("Messages sent per Type").graph(per_type, 'type')
       end
     end
 
-    def send_to_slack(files_to_send)
-      CLI::UI::Spinner.spin("Sending files to slack") do |spinner|
-        graphs_sent = 0
-        files_sent_before = []
-        send_check = SlackStats::GraphSendCheck.new
+    def render_and_post_html
+      # TODO: Clean up
+      file_name = Time.now.to_s.gsub(/\s/, '_') + '.html'
+      html = File.read(File.join(ROOT, 'html', 'page.html')).gsub(/{{ script }}/, @scripts.join("\n"))
+      File.write(File.join(ROOT, 'html', 'slacks', file_name), html)
 
-        files_to_send.each do |title, path|
-          files_sent_before = send_check.with_check(path: path, save: false) do
-            graphs_sent += 1
-            spinner.update_title "Sending #{__dir__, '.../')}"
-            @slack_client.files_upload(
-              channels: '#personal-stats',
-              file: Faraday::UploadIO.new(path, 'image/png'),
-              title: title,
-              filename: 'graph.jpg',
-              initial_comment: "*Graph:* #{title}\n*Date:* #{@base_time}"
-            )
-          end
-        end
-
-        # Notify of the files sent as files cannot be sent with `as_user: false` so I wont get notified
-        if graphs_sent > 0
-          send_check.save!
-          @slack_client.chat_postMessage(
-            channel: '#personal-stats',
-            text: "Sent #{graphs_sent} Graphs. Take a look!",
-            username: "Julian's Stats",
-            as_user: false,
-            icon_emoji: ':learnding-ralph:'
-          )
-        end
-      end
+      @slack_client.chat_postMessage(
+        channel: '#personal-stats',
+        text: "Rendered #{@scripts.size} Graphs. Take a look! (http://localhost:8090/slacks/#{file_name})",
+        username: "Julian's Stats",
+        as_user: false,
+        icon_emoji: ':learnding-ralph:'
+      )
     end
 
     def each_day(start_date, end_date)

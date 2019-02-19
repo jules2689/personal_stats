@@ -1,0 +1,57 @@
+<html>
+  <head>
+    <title>Personal Stats</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="utf-8">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+    <style type="text/css">/* Chart.js */
+    @-webkit-keyframes chartjs-render-animation{from{opacity:0.99}to{opacity:1}}@keyframes chartjs-render-animation{from{opacity:0.99}to{opacity:1}}.chartjs-render-monitor{-webkit-animation:chartjs-render-animation 0.001s;animation:chartjs-render-animation 0.001s;}</style>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+     <script>
+      function graph(title, data) {
+        // Create Chart Element
+        var chartId = "chart-" + Math.random().toString(36).substring(7);
+        var chart = document.createElement("canvas");
+        chart.id = chartId;
+
+        // Add it to a column
+        var col = document.createElement("div");
+        col.className = "col-md-5";
+        col.appendChild(chart);
+
+        // Append it to the row
+        document.getElementById('row').appendChild(col);
+
+        // Create chart
+        var ctx = document.getElementById(chartId);
+        var myChart = new Chart(ctx, {
+          type: 'bar',
+          options: {
+            title: {
+              display: true,
+              text: title
+            },
+            responsive: true,
+            scales: {
+              yAxes: [{
+                stacked: true
+              }],
+              xAxes: [{
+                stacked: true
+              }]
+            }
+          },
+          data: data
+        });
+      }
+    </script>
+  </head>
+  <body>
+    <div class="container">
+      <div class="row" id="row"></div>
+    </div>
+    <script>
+    {{ script }}
+    </script>
+  </body>
+</html>

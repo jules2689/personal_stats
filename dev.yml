@@ -3,4 +3,6 @@ up:
   - homebrew:
     - sqlite
   - ruby: 2.5.3
-  - bundler
+  - python: "3.7.2"
+  - pip
+

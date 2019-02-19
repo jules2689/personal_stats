@@ -16,10 +16,12 @@ module SlackStats
     class << self
       def run
         database = Database.new
-        msgs = all_messages
+        Aggregator.new(database, CLIENT).run
+        
+        # msgs = all_messages
 
-        record_messages(database, msgs)
-        record_stats(database)
+        # record_messages(database, msgs)
+        # record_stats(database)
       end
 
       private
@@ -125,7 +127,7 @@ module SlackStats
             everything_else = all - stats.map { |s| s[:messages_sent] }.sum
 
             SlackStats::GraphSendCheck.new.with_check(path: path) do
-              Grapher.new("Top 10 Of All Time", Gruff::Bar, true).graph(stats, :messages_sent, path)
+              raise Grapher.new.graph(stats, :messages_sent).inspect
 
               CLIENT.files_upload(
                 channels: '#personal-stats',
