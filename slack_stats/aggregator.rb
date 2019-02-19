@@ -144,6 +144,7 @@ module SlackStats
       html = File.read(File.join(ROOT, 'html', 'page.html')).gsub(/{{ script }}/, @scripts.join("\n"))
       File.write(File.join(ROOT, 'html', 'slacks', file_name), html)
 
+      # Assumes the `server.py` is running in the html folder
       @slack_client.chat_postMessage(
         channel: '#personal-stats',
         text: "Rendered #{@scripts.size} Graphs. Take a look! (http://localhost:8090/slacks/#{file_name})",
