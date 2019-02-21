@@ -8,6 +8,7 @@ gemfile do
   gem 'byebug'
   gem 'sqlite3'
   gem 'cli-ui'
+  gem 'pry-byebug'
 end
 
 require 'dotenv/load'

@@ -16,12 +16,9 @@ module SlackStats
     class << self
       def run
         database = Database.new
-        Aggregator.new(database, CLIENT).run
-        
-        # msgs = all_messages
-
-        # record_messages(database, msgs)
-        # record_stats(database)
+        msgs = all_messages
+        record_messages(database, msgs)
+        record_stats(database)
       end
 
       private
@@ -106,6 +103,8 @@ module SlackStats
       end
 
       def record_stats(database)
+        scripts = []
+
         CLI::UI::Frame.open('Record and Send Stats') do
           stats = database.slack_stats
 
@@ -118,37 +117,40 @@ module SlackStats
               bar.tick(set_percent: 1.0)
             end
 
-            base_time = DateTime.now.prev_day.strftime("%Y/%m/%d")
-            path = __dir__ + "/graphs/channels/#{base_time}/all_time.png"
-
-            all = stats.map { |s| s[:messages_sent] }.sum
-            stats = stats.max(10) { |s| s[:messages_sent] }.sort_by { |s| -s[:messages_sent] }
-            max_value = stats.max { |s| s[:messages_sent] }
-            everything_else = all - stats.map { |s| s[:messages_sent] }.sum
-
-            SlackStats::GraphSendCheck.new.with_check(path: path) do
-              raise Grapher.new.graph(stats, :messages_sent).inspect
-
-              CLIENT.files_upload(
-                channels: '#personal-stats',
-                file: Faraday::UploadIO.new(path, 'image/png'),
-                title: "Top 10 of All Time",
-                filename: 'graph.jpg',
-                initial_comment: "*Top 10 Of All Time*\n*Date:* #{base_time}\n*Everything Else:* #{everything_else}"
-              )
-              CLIENT.chat_postMessage(
-                channel: '#personal-stats',
-                text: "Sent all time chart",
-                username: "Julian's Stats",
-                as_user: false,
-                icon_emoji: ':learnding-ralph:'
-              )
+            stats = stats.max_by(5) { |s| s[:messages_sent] }.sort_by { |s| -s[:messages_sent] }
+            scripts << Grapher.new("All Time").custom_graph(stacked: false) do
+              values = stats.map.with_index do |s, i| 
+                {
+                  label: s[:name],
+                  backgroundColor: Grapher.colors[i],
+                  data: [s[:messages_sent]]
+                }
+              end
+              [nil, values]
             end
           end
 
-          Aggregator.new(database, CLIENT).run
+          scripts += Aggregator.new(database).run
+          render_and_post_html(scripts)
         end
+      end
 
+      def render_and_post_html(scripts)
+        SlackStats::DaySendCheck.with_check do
+          # TODO: Clean up
+          file_name = Time.now.to_s.gsub(/\s/, '_') + '.html'
+          html = File.read(File.join(ROOT, 'html', 'page.html')).gsub(/{{ script }}/, scripts.join("\n"))
+          File.write(File.join(ROOT, 'html', 'slacks', file_name), html)
+
+          # Assumes the `server.py` is running in the html folder
+          CLIENT.chat_postMessage(
+            channel: '#personal-stats',
+            text: "Rendered #{scripts.size} Graphs. Take a look! (http://localhost:8090/slacks/#{file_name})",
+            username: "Julian's Stats",
+            as_user: false,
+            icon_emoji: ':learnding-ralph:'
+          )
+        end
       end
     end
   end

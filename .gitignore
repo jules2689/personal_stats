@@ -3,5 +3,6 @@
 slack.json
 *.db
 slack_stats/graphs/*
-slack_stats/graphs_sent.yml
+slack_stats/days_sent.yml
 .DS_Store
+google/file_store/*

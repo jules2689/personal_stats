@@ -2,14 +2,13 @@ require 'yaml'
 require 'date'
 
 require_relative 'grapher'
-require_relative 'graph_send_check'
+require_relative 'day_send_check'
 
 module SlackStats
   class Aggregator
-    def initialize(database, slack_client)
+    def initialize(database)
       @scripts = [];
       @database = database
-      @slack_client = slack_client
       @base_time = DateTime.now.prev_day.strftime("%Y/%m/%d")
     end
 
@@ -18,8 +17,8 @@ module SlackStats
         record_aggregates
         aggreate_by_type
         aggregate_by_channels
-        render_and_post_html
       end
+      @scripts
     end
 
     private
@@ -136,22 +135,6 @@ module SlackStats
         per_type = @database.slack_aggregate_stats('type')
         @scripts << Grapher.new("Messages sent per Type").graph(per_type, 'type')
       end
-    end
-
-    def render_and_post_html
-      # TODO: Clean up
-      file_name = Time.now.to_s.gsub(/\s/, '_') + '.html'
-      html = File.read(File.join(ROOT, 'html', 'page.html')).gsub(/{{ script }}/, @scripts.join("\n"))
-      File.write(File.join(ROOT, 'html', 'slacks', file_name), html)
-
-      # Assumes the `server.py` is running in the html folder
-      @slack_client.chat_postMessage(
-        channel: '#personal-stats',
-        text: "Rendered #{@scripts.size} Graphs. Take a look! (http://localhost:8090/slacks/#{file_name})",
-        username: "Julian's Stats",
-        as_user: false,
-        icon_emoji: ':learnding-ralph:'
-      )
     end
 
     def each_day(start_date, end_date)

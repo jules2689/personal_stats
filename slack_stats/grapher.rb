@@ -14,7 +14,14 @@ module SlackStats
         default_graph(data, group_by)
       end
       data = { labels: labels, datasets: values }.to_json
-      script(data)
+      script(data, true)
+    end
+
+    def custom_graph(stacked: true)
+      labels, values = yield
+      data = { datasets: values }
+      data[:labels] = labels if labels
+      script(data.to_json, stacked)
     end
 
     def self.colors
@@ -31,11 +38,12 @@ module SlackStats
 
     private
 
-    def script(data)
+    def script(data, stacked)
+      scale = stacked ? " window.stacked_scale" : "{}"
       var = ('a'..'z').to_a.shuffle[0,8].join
       <<~EOF
       var data_#{var} = #{data};
-      graph("#{@title.encode("UTF-8")}", data_#{var});
+      graph("#{@title.encode("UTF-8")}", data_#{var}, #{scale});
       EOF
     end
 

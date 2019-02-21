@@ -8,7 +8,15 @@
     @-webkit-keyframes chartjs-render-animation{from{opacity:0.99}to{opacity:1}}@keyframes chartjs-render-animation{from{opacity:0.99}to{opacity:1}}.chartjs-render-monitor{-webkit-animation:chartjs-render-animation 0.001s;animation:chartjs-render-animation 0.001s;}</style>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
      <script>
-      function graph(title, data) {
+      window.stacked_scale = {
+        yAxes: [{
+          stacked: true
+        }],
+        xAxes: [{
+          stacked: true
+        }]
+      };
+      function graph(title, data, scale) {
         // Create Chart Element
         var chartId = "chart-" + Math.random().toString(36).substring(7);
         var chart = document.createElement("canvas");
@@ -32,14 +40,7 @@
               text: title
             },
             responsive: true,
-            scales: {
-              yAxes: [{
-                stacked: true
-              }],
-              xAxes: [{
-                stacked: true
-              }]
-            }
+            scales: scale
           },
           data: data
         });
